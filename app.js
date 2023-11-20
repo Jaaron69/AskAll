@@ -3,9 +3,13 @@ import express from "express";
 import bodyParser from "body-parser";
 import mysql from "mysql2";
 import session from "express-session";
+import fs from "fs";
+import CloudmersiveConvertApiClient from 'cloudmersive-convert-api-client';
+import fileUpload from "express-fileupload";
 
 const app = express();
 
+app.use(fileUpload());
 app.use(
 	session({
 		secret: "your-secret-key",
@@ -54,6 +58,68 @@ app.get("/resumeVital", (req, res) => res.render("resumes/resumeVital.ejs"));
 app.get("/resumeZapanta", (req, res) =>
 	res.render("resumes/resumeZapanta.ejs")
 );
+
+var defaultClient = CloudmersiveConvertApiClient.ApiClient.instance;
+
+// Configure API key authorization: Apikey
+var Apikey = defaultClient.authentications['Apikey'];
+Apikey.apiKey = '3b6bfd19-9a46-44f6-91b6-a5a9b0e7b30c';
+
+var apiInstance = new CloudmersiveConvertApiClient.ConvertDocumentApi();
+
+const directoryPath = "C:\\xampp\\htdocs\\AskAll\\uploads";
+const fileName = "Lesson11_ListView_BackKey.pdf";
+const filePath = `${directoryPath}\\${fileName}`;
+
+fs.readFile(filePath, (err, data) => {
+    if (err) {
+        console.error(`Error reading file ${filePath}: ${err}`);
+    } else {
+        const inputFile = Buffer.from(data.buffer);
+
+        var callback = function(error, responseData, response) {
+            if (error) {
+                console.error(error);
+            } else {
+                console.log('API called successfully. Returned data: ' + responseData);
+                // Handle the converted data as needed
+            }
+        };
+
+        apiInstance.convertDocumentPdfToDocx(inputFile, callback);
+    }
+});
+
+app.post("/convertPdfToWord", (req, res) => {
+  // Check if a file was uploaded
+  if (!req.files || !req.files.pdfFile) {
+    return res.status(400).send("No PDF file uploaded.");
+  }
+
+  // Get the uploaded PDF file from the request
+  const pdfFile = req.files.pdfFile;
+
+  // Read the contents of the PDF file
+  const inputFile = Buffer.from(pdfFile.data.buffer);
+
+  // Call the Cloudmersive API to convert the PDF to Word
+  apiInstance.convertDocumentPdfToDocx(inputFile, (error, responseData, response) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).send("Error converting PDF to Word.");
+    }
+
+    // Handle the converted data as needed
+    const docxData = Buffer.from(responseData);
+
+    // Set the appropriate headers for download
+    res.setHeader('Content-Disposition', 'attachment; filename=converted-document.docx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+    // Send the converted DOCX file as the response
+    res.status(200).send(docxData);
+  });
+});
 
 //SERVER PORT
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
